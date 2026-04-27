@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -27,6 +28,7 @@ type Item = {
 type Row = {
   data_venda: string;
   observacao: string | null;
+  prefeitura: { nome: string } | null;
   secretaria: { nome: string } | null;
   itens_venda: Item[];
 };
@@ -38,32 +40,51 @@ export const Route = createFileRoute("/relatorios")({
 function Relatorios() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [prefeituras, setPrefeituras] = useState<{ id: string; nome: string }[]>([]);
   const [secretarias, setSecretarias] = useState<{ id: string; nome: string }[]>([]);
-  const [secId, setSecId] = useState<string>("all");
+  const [filtroPrefeitura, setFiltroPrefeitura] = useState<string>("todas");
+  const [secretariasSelecionadas, setSecretariasSelecionadas] = useState<string[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     supabase
-      .from("secretarias")
+      .from("prefeituras" as any)
       .select("id, nome")
       .order("nome")
-      .then(({ data }) => {
-        setSecretarias(data ?? []);
+      .then(({ data }: any) => {
+        setPrefeituras(data ?? []);
       });
   }, []);
+
+  useEffect(() => {
+    if (filtroPrefeitura !== "todas") {
+      supabase
+        .from("secretarias" as any)
+        .select("id, nome")
+        .eq("prefeitura_id", filtroPrefeitura)
+        .order("nome")
+        .then(({ data }: any) => {
+          setSecretarias(data ?? []);
+        });
+    } else {
+      setSecretarias([]);
+    }
+    setSecretariasSelecionadas([]);
+  }, [filtroPrefeitura]);
 
   const carregar = async () => {
     setLoading(true);
     let q = supabase
-      .from("vendas")
+      .from("vendas" as any)
       .select(
-        "data_venda, observacao, secretaria:secretarias(nome), itens_venda(quantidade, unidade, preco_unitario, produto:produtos(nome))",
+        "data_venda, observacao, prefeitura:prefeituras(nome), secretaria:secretarias(nome), itens_venda(quantidade, unidade, preco_unitario, produto:produtos(nome))",
       )
       .order("data_venda", { ascending: true });
     if (from) q = q.gte("data_venda", from);
     if (to) q = q.lte("data_venda", to);
-    if (secId !== "all") q = q.eq("secretaria_id", secId);
+    if (filtroPrefeitura !== "todas") q = q.eq("prefeitura_id", filtroPrefeitura);
+    if (secretariasSelecionadas.length > 0) q = q.in("secretaria_id", secretariasSelecionadas);
     const { data } = await q;
     setRows((data as any) ?? []);
     setLoading(false);
@@ -71,7 +92,7 @@ function Relatorios() {
 
   useEffect(() => {
     carregar();
-  }, [from, to, secId]);
+  }, [from, to, filtroPrefeitura, secretariasSelecionadas]);
 
   const totalVenda = (v: Row) =>
     v.itens_venda.reduce((s, it) => s + Number(it.quantidade) * Number(it.preco_unitario), 0);
@@ -79,7 +100,8 @@ function Relatorios() {
   const grupos = useMemo(() => {
     const map = new Map<string, { vendas: Row[]; total: number }>();
     for (const v of rows) {
-      const nome = v.secretaria?.nome ?? "—";
+      const prefNome = v.prefeitura?.nome ?? "—";
+      const nome = v.secretaria ? `${prefNome} - ${v.secretaria.nome}` : prefNome;
       const g = map.get(nome) ?? { vendas: [], total: 0 };
       g.vendas.push(v);
       g.total += totalVenda(v);
@@ -96,11 +118,12 @@ function Relatorios() {
     >();
 
     for (const v of rows) {
-      const secNome = v.secretaria?.nome ?? "—";
-      if (!map.has(secNome)) {
-        map.set(secNome, new Map());
+      const prefNome = v.prefeitura?.nome ?? "—";
+      const nome = v.secretaria ? `${prefNome} - ${v.secretaria.nome}` : prefNome;
+      if (!map.has(nome)) {
+        map.set(nome, new Map());
       }
-      const prodMap = map.get(secNome)!;
+      const prodMap = map.get(nome)!;
 
       for (const it of v.itens_venda) {
         const prodNome = it.produto?.nome ?? "—";
@@ -299,21 +322,45 @@ function Relatorios() {
 
       <Card className="p-3 space-y-3">
         <div>
-          <Label className="text-xs">Secretaria</Label>
-          <Select value={secId} onValueChange={setSecId}>
+          <Label className="text-xs">Prefeitura</Label>
+          <Select value={filtroPrefeitura} onValueChange={setFiltroPrefeitura}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas as secretarias</SelectItem>
-              {secretarias.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.nome}
+              <SelectItem value="todas">Todas</SelectItem>
+              {prefeituras.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.nome}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
+        {secretarias.length > 0 && (
+          <div>
+            <Label className="text-xs mb-2 block">Secretarias</Label>
+            <div className="flex flex-wrap gap-3">
+              {secretarias.map((s) => (
+                <label key={s.id} className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={secretariasSelecionadas.includes(s.id)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSecretariasSelecionadas([...secretariasSelecionadas, s.id]);
+                      } else {
+                        setSecretariasSelecionadas(
+                          secretariasSelecionadas.filter((id) => id !== s.id),
+                        );
+                      }
+                    }}
+                  />
+                  <span className="text-sm">{s.nome}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label className="text-xs">De</Label>
@@ -336,7 +383,7 @@ function Relatorios() {
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Building2 className="h-4 w-4" /> Secretarias
+            <Building2 className="h-4 w-4" /> Grupos
           </div>
           <p className="text-2xl font-bold mt-1 text-primary">{grupos.length}</p>
           <p className="text-xs text-muted-foreground mt-1">no relatório</p>

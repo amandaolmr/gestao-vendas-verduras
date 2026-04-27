@@ -23,6 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, Calendar, Building2, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -31,6 +32,7 @@ type Venda = {
   id: string;
   data_venda: string;
   observacao: string | null;
+  prefeitura: { nome: string } | null;
   secretaria: { nome: string } | null;
   itens_venda: { quantidade: number; preco_unitario: number }[];
 };
@@ -41,9 +43,11 @@ export const Route = createFileRoute("/")({
 
 function VendasIndex() {
   const [vendas, setVendas] = useState<Venda[]>([]);
+  const [prefeituras, setPrefeituras] = useState<{ id: string; nome: string }[]>([]);
   const [secretarias, setSecretarias] = useState<{ id: string; nome: string }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filtroSec, setFiltroSec] = useState<string>("todas");
+  const [filtroPrefeitura, setFiltroPrefeitura] = useState<string>("todas");
+  const [secretariasSelecionadas, setSecretariasSelecionadas] = useState<string[]>([]);
   const [filtroData, setFiltroData] = useState<string>("");
   const [vendaParaExcluir, setVendaParaExcluir] = useState<string | null>(null);
 
@@ -52,11 +56,12 @@ function VendasIndex() {
     let q = supabase
       .from("vendas")
       .select(
-        "id, data_venda, observacao, secretaria:secretarias(nome), itens_venda(quantidade, preco_unitario)",
+        "id, data_venda, observacao, prefeitura:prefeituras(nome), secretaria:secretarias(nome), itens_venda(quantidade, preco_unitario)",
       )
       .order("data_venda", { ascending: false })
       .order("created_at", { ascending: false });
-    if (filtroSec !== "todas") q = q.eq("secretaria_id", filtroSec);
+    if (filtroPrefeitura !== "todas") q = q.eq("prefeitura_id", filtroPrefeitura);
+    if (secretariasSelecionadas.length > 0) q = q.in("secretaria_id", secretariasSelecionadas);
     if (filtroData) q = q.eq("data_venda", filtroData);
     const { data, error } = await q;
     if (error) toast.error(error.message);
@@ -66,18 +71,34 @@ function VendasIndex() {
 
   useEffect(() => {
     supabase
-      .from("secretarias")
+      .from("prefeituras" as any)
       .select("id, nome")
       .order("nome")
-      .then(({ data }) => {
-        setSecretarias(data ?? []);
+      .then(({ data }: any) => {
+        setPrefeituras(data ?? []);
       });
   }, []);
 
   useEffect(() => {
+    if (filtroPrefeitura !== "todas") {
+      supabase
+        .from("secretarias")
+        .select("id, nome")
+        .eq("prefeitura_id", filtroPrefeitura)
+        .order("nome")
+        .then(({ data }) => {
+          setSecretarias(data ?? []);
+        });
+    } else {
+      setSecretarias([]);
+    }
+    setSecretariasSelecionadas([]);
+  }, [filtroPrefeitura]);
+
+  useEffect(() => {
     carregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroSec, filtroData]);
+  }, [filtroPrefeitura, secretariasSelecionadas, filtroData]);
 
   const confirmarExclusao = async () => {
     if (!vendaParaExcluir) return;
@@ -101,34 +122,64 @@ function VendasIndex() {
         </Link>
       </div>
 
-      <Card className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <Label className="text-xs">Secretaria</Label>
-          <Select value={filtroSec} onValueChange={setFiltroSec}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todas">Todas</SelectItem>
-              {secretarias.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.nome}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label className="text-xs">Data</Label>
-          <div className="flex gap-2">
-            <Input type="date" value={filtroData} onChange={(e) => setFiltroData(e.target.value)} />
-            {filtroData && (
-              <Button variant="outline" size="icon" onClick={() => setFiltroData("")}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
+      <Card className="p-3 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs">Prefeitura</Label>
+            <Select value={filtroPrefeitura} onValueChange={setFiltroPrefeitura}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas</SelectItem>
+                {prefeituras.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Data</Label>
+            <div className="flex gap-2">
+              <Input
+                type="date"
+                value={filtroData}
+                onChange={(e) => setFiltroData(e.target.value)}
+              />
+              {filtroData && (
+                <Button variant="outline" size="icon" onClick={() => setFiltroData("")}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
+        {secretarias.length > 0 && (
+          <div>
+            <Label className="text-xs mb-2 block">Secretarias</Label>
+            <div className="flex flex-wrap gap-3">
+              {secretarias.map((s) => (
+                <label key={s.id} className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={secretariasSelecionadas.includes(s.id)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSecretariasSelecionadas([...secretariasSelecionadas, s.id]);
+                      } else {
+                        setSecretariasSelecionadas(
+                          secretariasSelecionadas.filter((id) => id !== s.id),
+                        );
+                      }
+                    }}
+                  />
+                  <span className="text-sm">{s.nome}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
       </Card>
 
       {loading ? (
@@ -152,9 +203,16 @@ function VendasIndex() {
                       <Calendar className="h-4 w-4" />
                       <span>{formatDate(v.data_venda)}</span>
                     </div>
-                    <div className="flex items-center gap-2 font-semibold text-foreground">
-                      <Building2 className="h-4 w-4 text-primary" />
-                      <span className="truncate">{v.secretaria?.nome ?? "—"}</span>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 font-semibold text-foreground">
+                        <Building2 className="h-4 w-4 text-primary" />
+                        <span className="truncate">{v.prefeitura?.nome ?? "—"}</span>
+                      </div>
+                      {v.secretaria && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span className="truncate">{v.secretaria.nome}</span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="secondary">{v.itens_venda.length} itens</Badge>

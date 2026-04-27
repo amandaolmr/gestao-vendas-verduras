@@ -56,15 +56,15 @@ function EditarVenda() {
 
   useEffect(() => {
     supabase
-      .from("prefeituras")
+      .from("prefeituras" as any)
       .select("id, nome")
       .order("nome")
-      .then(({ data }) => setPrefeituras(data ?? []));
+      .then(({ data }: any) => setPrefeituras(data ?? []));
     supabase
-      .from("secretarias")
+      .from("secretarias" as any)
       .select("id, nome, prefeitura_id")
       .order("nome")
-      .then(({ data }) => setSecretarias((data ?? []) as Secretaria[]));
+      .then(({ data }: any) => setSecretarias((data ?? []) as Secretaria[]));
     supabase
       .from("produtos")
       .select("id, nome, unidade_padrao, preco_padrao")
@@ -86,13 +86,13 @@ function EditarVenda() {
   useEffect(() => {
     const carregarVenda = async () => {
       setCarregando(true);
-      const { data: venda, error: e1 } = await supabase
-        .from("vendas")
+      const { data: venda, error: e1 } = (await supabase
+        .from("vendas" as any)
         .select(
           "prefeitura_id, secretaria_id, data_venda, observacao, itens_venda(produto_id, quantidade, unidade, preco_unitario)",
         )
         .eq("id", id)
-        .single();
+        .single()) as any;
 
       if (e1 || !venda) {
         toast.error("Erro ao carregar venda");
@@ -154,7 +154,7 @@ function EditarVenda() {
 
     // Atualizar dados da venda
     const { error: e1 } = await supabase
-      .from("vendas")
+      .from("vendas" as any)
       .update({
         prefeitura_id: prefeituraId,
         secretaria_id: secretariaId || null,
@@ -406,11 +406,13 @@ function EditarVenda() {
               <div>
                 <Label className="text-xs">Preço un.</Label>
                 <Input
-                  type="text"
-                  readOnly
-                  tabIndex={-1}
-                  value={it.preco_unitario ? formatCurrency(Number(it.preco_unitario)) : "—"}
-                  className="bg-muted"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  value={it.preco_unitario}
+                  onChange={(e) => updateItem(i, { preco_unitario: e.target.value })}
+                  placeholder="0,00"
                 />
               </div>
             </div>
