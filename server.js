@@ -1,7 +1,8 @@
 import { createServer } from "http";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { existsSync } from "fs";
+import { existsSync, createReadStream, statSync } from "fs";
+import { lookup } from "mime-types";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -13,6 +14,7 @@ console.log("🚀 Starting production server...");
 
 // Importa o worker entry do TanStack Start
 const workerEntryPath = join(__dirname, "dist/server/index.js");
+const clientPath = join(__dirname, "dist/client");
 
 if (!existsSync(workerEntryPath)) {
   console.error("❌ Error: dist/server/index.js not found!");
@@ -25,11 +27,48 @@ const serverModule = await import(workerEntryPath);
 const workerHandler = serverModule.default;
 
 console.log("📦 Server module loaded:", typeof workerHandler);
+console.log("📁 Client path:", clientPath);
+
+// Função para servir arquivo estático
+function serveStaticFile(filePath, res) {
+  if (!existsSync(filePath)) {
+    return false;
+  }
+
+  try {
+    const stat = statSync(filePath);
+    if (!stat.isFile()) {
+      return false;
+    }
+
+    const contentType = lookup(filePath) || "application/octet-stream";
+    res.writeHead(200, {
+      "Content-Type": contentType,
+      "Content-Length": stat.size,
+      "Cache-Control": "public, max-age=31536000",
+    });
+
+    createReadStream(filePath).pipe(res);
+    return true;
+  } catch (error) {
+    console.error("Error serving file:", error);
+    return false;
+  }
+}
 
 // Cria servidor HTTP
 const server = createServer(async (req, res) => {
   try {
-    // Monta URL completa
+    const urlPath = new URL(req.url, `http://${req.headers.host}`).pathname;
+
+    // 🔥 Tenta servir qualquer arquivo estático de dist/client
+    const filePath = join(clientPath, urlPath);
+    if (serveStaticFile(filePath, res)) {
+      console.log("✅ Served static:", urlPath);
+      return;
+    }
+
+    // Para outras rotas, usa o handler SSR do TanStack Start
     const protocol = req.headers["x-forwarded-proto"] || "http";
     const host = req.headers.host || "localhost";
     const url = `${protocol}://${host}${req.url}`;
@@ -38,7 +77,25 @@ const server = createServer(async (req, res) => {
     const env = {
       ASSETS: {
         fetch: async (request) => {
-          // Para assets estáticos, retorna 404
+          // Tenta servir do filesystem
+          const assetUrl = new URL(request.url);
+          const assetPath = join(clientPath, assetUrl.pathname);
+
+          if (existsSync(assetPath)) {
+            const stat = statSync(assetPath);
+            if (stat.isFile()) {
+              const content = await import("fs/promises").then((fs) => fs.readFile(assetPath));
+              const contentType = lookup(assetPath) || "application/octet-stream";
+              return new Response(content, {
+                status: 200,
+                headers: {
+                  "Content-Type": contentType,
+                  "Cache-Control": "public, max-age=31536000",
+                },
+              });
+            }
+          }
+
           return new Response("Not Found", { status: 404 });
         },
       },
