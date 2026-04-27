@@ -3,7 +3,7 @@ services:
     name: gestao-vendas-verduras
     runtime: node
     buildCommand: npm install && npm run build
-    startCommand: npm run start
+    startCommand: node server.js
     envVars:
       - key: NODE_VERSION
         value: 20.11.0
