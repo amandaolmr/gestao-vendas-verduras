@@ -4,6 +4,7 @@ import { Layout } from "@/components/Layout";
 
 import appCss from "../styles.css?url";
 import faviconSvg from "../favicon.svg?url";
+import manifestJson from "../manifest.json?url";
 
 function NotFoundComponent() {
   return (
@@ -47,11 +48,13 @@ export const Route = createRootRoute({
       },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
+      { name: "theme-color", content: "#22c55e" },
     ],
+    links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", type: "image/svg+xml", href: faviconSvg },
-    
-    links: [{ rel: "stylesheet", href: appCss }],
+      { rel: "manifest", href: manifestJson },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
