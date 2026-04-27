@@ -35,8 +35,6 @@ export const Route = createRootRoute({
       { name: "twitter:title", content: "Gestão Vendas Verdurão" },
       { property: "og:description", content: "Controle de vendas de frutas, verduras e legumes para secretarias da prefeitura." },
       { name: "twitter:description", content: "Controle de vendas de frutas, verduras e legumes para secretarias da prefeitura." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d049352f-26e9-452b-8f5c-b96efb4782a8/id-preview-a30190c7--437168d4-fa12-41ce-ab45-774d0b4ff99f.lovable.app-1777033822249.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d049352f-26e9-452b-8f5c-b96efb4782a8/id-preview-a30190c7--437168d4-fa12-41ce-ab45-774d0b4ff99f.lovable.app-1777033822249.png" },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
     ],
