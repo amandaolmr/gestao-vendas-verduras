@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Layout } from "@/components/Layout";
 
 import appCss from "../styles.css?url";
+import faviconSvg from "../favicon.svg?url";
 
 function NotFoundComponent() {
   return (
@@ -47,6 +48,9 @@ export const Route = createRootRoute({
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
     ],
+      { rel: "stylesheet", href: appCss },
+      { rel: "icon", type: "image/svg+xml", href: faviconSvg },
+    
     links: [{ rel: "stylesheet", href: appCss }],
   }),
   shellComponent: RootShell,
