@@ -1,7 +1,7 @@
 import { createServer } from "http";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { readFileSync, existsSync } from "fs";
+import { existsSync } from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -20,13 +20,37 @@ if (!existsSync(workerEntryPath)) {
   process.exit(1);
 }
 
-const { default: handler } = await import(workerEntryPath);
+// Importa o módulo do servidor
+const serverModule = await import(workerEntryPath);
+const workerHandler = serverModule.default;
+
+console.log("📦 Server module loaded:", typeof workerHandler);
 
 // Cria servidor HTTP
 const server = createServer(async (req, res) => {
   try {
-    // Converte requisição Node.js para Request Web API
-    const url = `http://${req.headers.host}${req.url}`;
+    // Monta URL completa
+    const protocol = req.headers["x-forwarded-proto"] || "http";
+    const host = req.headers.host || "localhost";
+    const url = `${protocol}://${host}${req.url}`;
+
+    // Cria objeto de ambiente para o handler
+    const env = {
+      ASSETS: {
+        fetch: async (request) => {
+          // Para assets estáticos, retorna 404
+          return new Response("Not Found", { status: 404 });
+        },
+      },
+    };
+
+    // Cria contexto de execução
+    const ctx = {
+      waitUntil: (promise) => {},
+      passThroughOnException: () => {},
+    };
+
+    // Cria Request Web API
     const request = new Request(url, {
       method: req.method,
       headers: Object.entries(req.headers).reduce((acc, [key, value]) => {
@@ -39,8 +63,8 @@ const server = createServer(async (req, res) => {
       }, new Headers()),
     });
 
-    // Chama o handler do TanStack Start
-    const response = await handler(request, {});
+    // Chama o handler com os parâmetros corretos
+    const response = await workerHandler.fetch(request, env, ctx);
 
     // Converte Response Web API para resposta Node.js
     res.statusCode = response.status;
