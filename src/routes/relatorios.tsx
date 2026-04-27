@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrendingUp, Building2, Download, FileText } from "lucide-react";
+import { TrendingUp, Building2, Download, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/format";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -46,6 +46,8 @@ function Relatorios() {
   const [secretariasSelecionadas, setSecretariasSelecionadas] = useState<string[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cardsExpandidos, setCardsExpandidos] = useState<Set<string>>(new Set());
+  const MAX_PRODUTOS_VISIVEL = 5;
 
   useEffect(() => {
     supabase
@@ -466,57 +468,97 @@ function Relatorios() {
             <p className="text-center text-muted-foreground py-12">Sem dados no período.</p>
           ) : (
             <div className="space-y-4">
-              {consolidado.map((item) => (
-                <Card key={item.secretaria} className="overflow-hidden">
-                  <div
-                    className="p-3 flex items-center justify-between"
-                    style={{ background: "var(--gradient-primary)", color: "white" }}
-                  >
-                    <p className="font-semibold flex items-center gap-2">
-                      <Building2 className="h-4 w-4" /> {item.secretaria}
-                    </p>
-                    <p className="font-bold">{formatCurrency(item.total)}</p>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          <th className="text-left p-3 font-medium">Produto</th>
-                          <th className="text-right p-3 font-medium">Quantidade</th>
-                          <th className="text-right p-3 font-medium">Preço Un.</th>
-                          <th className="text-right p-3 font-medium">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {item.produtos.map((p) => (
-                          <tr key={p.nome} className="hover:bg-muted/30">
-                            <td className="p-3 font-medium">{p.nome}</td>
-                            <td className="p-3 text-right text-muted-foreground">
-                              {formatNumber(p.quantidade, 3)} {p.unidade}
+              {consolidado.map((item) => {
+                const expandido = cardsExpandidos.has(item.secretaria);
+                const produtosVisiveis = expandido
+                  ? item.produtos
+                  : item.produtos.slice(0, MAX_PRODUTOS_VISIVEL);
+                const temMais = item.produtos.length > MAX_PRODUTOS_VISIVEL;
+
+                const toggleExpansao = () => {
+                  const novoSet = new Set(cardsExpandidos);
+                  if (expandido) {
+                    novoSet.delete(item.secretaria);
+                  } else {
+                    novoSet.add(item.secretaria);
+                  }
+                  setCardsExpandidos(novoSet);
+                };
+
+                return (
+                  <Card key={item.secretaria} className="overflow-hidden">
+                    <div
+                      className="p-3 flex items-center justify-between"
+                      style={{ background: "var(--gradient-primary)", color: "white" }}
+                    >
+                      <p className="font-semibold flex items-center gap-2">
+                        <Building2 className="h-4 w-4" /> {item.secretaria}
+                      </p>
+                      <p className="font-bold">{formatCurrency(item.total)}</p>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="text-left p-3 font-medium">Produto</th>
+                            <th className="text-right p-3 font-medium">Quantidade</th>
+                            <th className="text-right p-3 font-medium">Preço Un.</th>
+                            <th className="text-right p-3 font-medium">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {produtosVisiveis.map((p) => (
+                            <tr key={p.nome} className="hover:bg-muted/30">
+                              <td className="p-3 font-medium">{p.nome}</td>
+                              <td className="p-3 text-right text-muted-foreground">
+                                {formatNumber(p.quantidade, 3)} {p.unidade}
+                              </td>
+                              <td className="p-3 text-right text-muted-foreground">
+                                {formatCurrency(p.preco_unitario)}
+                              </td>
+                              <td className="p-3 text-right font-semibold text-primary">
+                                {formatCurrency(p.total)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-muted/50 font-bold">
+                          <tr>
+                            <td colSpan={3} className="p-3 text-right">
+                              TOTAL
                             </td>
-                            <td className="p-3 text-right text-muted-foreground">
-                              {formatCurrency(p.preco_unitario)}
-                            </td>
-                            <td className="p-3 text-right font-semibold text-primary">
-                              {formatCurrency(p.total)}
+                            <td className="p-3 text-right text-primary text-lg">
+                              {formatCurrency(item.total)}
                             </td>
                           </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="bg-muted/50 font-bold">
-                        <tr>
-                          <td colSpan={3} className="p-3 text-right">
-                            TOTAL
-                          </td>
-                          <td className="p-3 text-right text-primary text-lg">
-                            {formatCurrency(item.total)}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </Card>
-              ))}
+                        </tfoot>
+                      </table>
+                    </div>
+                    {temMais && (
+                      <div className="p-3 border-t flex items-center justify-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={toggleExpansao}
+                          className="gap-2 text-xs"
+                        >
+                          {expandido ? (
+                            <>
+                              <ChevronUp className="h-4 w-4" />
+                              Mostrar menos
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="h-4 w-4" />
+                              Mostrar mais {item.produtos.length - MAX_PRODUTOS_VISIVEL} produtos
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
