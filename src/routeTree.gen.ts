@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SecretariasRouteImport } from './routes/secretarias'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
 import { Route as ProdutosRouteImport } from './routes/produtos'
+import { Route as PrefeiturasRouteImport } from './routes/prefeituras'
 import { Route as NovaVendaRouteImport } from './routes/nova-venda'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EditarVendaIdRouteImport } from './routes/editar-venda.$id'
@@ -29,6 +30,11 @@ const RelatoriosRoute = RelatoriosRouteImport.update({
 const ProdutosRoute = ProdutosRouteImport.update({
   id: '/produtos',
   path: '/produtos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrefeiturasRoute = PrefeiturasRouteImport.update({
+  id: '/prefeituras',
+  path: '/prefeituras',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NovaVendaRoute = NovaVendaRouteImport.update({
@@ -50,6 +56,7 @@ const EditarVendaIdRoute = EditarVendaIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/nova-venda': typeof NovaVendaRoute
+  '/prefeituras': typeof PrefeiturasRoute
   '/produtos': typeof ProdutosRoute
   '/relatorios': typeof RelatoriosRoute
   '/secretarias': typeof SecretariasRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/nova-venda': typeof NovaVendaRoute
+  '/prefeituras': typeof PrefeiturasRoute
   '/produtos': typeof ProdutosRoute
   '/relatorios': typeof RelatoriosRoute
   '/secretarias': typeof SecretariasRoute
@@ -67,6 +75,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/nova-venda': typeof NovaVendaRoute
+  '/prefeituras': typeof PrefeiturasRoute
   '/produtos': typeof ProdutosRoute
   '/relatorios': typeof RelatoriosRoute
   '/secretarias': typeof SecretariasRoute
@@ -77,6 +86,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/nova-venda'
+    | '/prefeituras'
     | '/produtos'
     | '/relatorios'
     | '/secretarias'
@@ -85,6 +95,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/nova-venda'
+    | '/prefeituras'
     | '/produtos'
     | '/relatorios'
     | '/secretarias'
@@ -93,6 +104,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/nova-venda'
+    | '/prefeituras'
     | '/produtos'
     | '/relatorios'
     | '/secretarias'
@@ -102,6 +114,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   NovaVendaRoute: typeof NovaVendaRoute
+  PrefeiturasRoute: typeof PrefeiturasRoute
   ProdutosRoute: typeof ProdutosRoute
   RelatoriosRoute: typeof RelatoriosRoute
   SecretariasRoute: typeof SecretariasRoute
@@ -131,6 +144,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProdutosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/prefeituras': {
+      id: '/prefeituras'
+      path: '/prefeituras'
+      fullPath: '/prefeituras'
+      preLoaderRoute: typeof PrefeiturasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/nova-venda': {
       id: '/nova-venda'
       path: '/nova-venda'
@@ -158,6 +178,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   NovaVendaRoute: NovaVendaRoute,
+  PrefeiturasRoute: PrefeiturasRoute,
   ProdutosRoute: ProdutosRoute,
   RelatoriosRoute: RelatoriosRoute,
   SecretariasRoute: SecretariasRoute,

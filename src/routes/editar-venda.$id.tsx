@@ -28,7 +28,8 @@ import { UNIDADES, formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type Produto = { id: string; nome: string; unidade_padrao: string; preco_padrao: number };
-type Secretaria = { id: string; nome: string };
+type Secretaria = { id: string; nome: string; prefeitura_id: string | null };
+type Prefeitura = { id: string; nome: string };
 type Item = { produto_id: string; quantidade: string; unidade: string; preco_unitario: string };
 
 export const Route = createFileRoute("/editar-venda/$id")({
@@ -38,8 +39,11 @@ export const Route = createFileRoute("/editar-venda/$id")({
 function EditarVenda() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
+  const [prefeituras, setPrefeituras] = useState<Prefeitura[]>([]);
   const [secretarias, setSecretarias] = useState<Secretaria[]>([]);
+  const [secretariasDaPrefeitura, setSecretariasDaPrefeitura] = useState<Secretaria[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [prefeituraId, setPrefeituraId] = useState("");
   const [secretariaId, setSecretariaId] = useState("");
   const [dataVenda, setDataVenda] = useState("");
   const [observacao, setObservacao] = useState("");
@@ -52,10 +56,15 @@ function EditarVenda() {
 
   useEffect(() => {
     supabase
-      .from("secretarias")
+      .from("prefeituras")
       .select("id, nome")
       .order("nome")
-      .then(({ data }) => setSecretarias(data ?? []));
+      .then(({ data }) => setPrefeituras(data ?? []));
+    supabase
+      .from("secretarias")
+      .select("id, nome, prefeitura_id")
+      .order("nome")
+      .then(({ data }) => setSecretarias((data ?? []) as Secretaria[]));
     supabase
       .from("produtos")
       .select("id, nome, unidade_padrao, preco_padrao")
@@ -63,13 +72,24 @@ function EditarVenda() {
       .then(({ data }) => setProdutos((data ?? []) as Produto[]));
   }, []);
 
+  // Quando seleciona prefeitura, filtra as secretarias
+  useEffect(() => {
+    if (prefeituraId) {
+      const secDaPref = secretarias.filter((s) => s.prefeitura_id === prefeituraId);
+      setSecretariasDaPrefeitura(secDaPref);
+      // Não limpa a secretaria na edição se ela já estiver selecionada
+    } else {
+      setSecretariasDaPrefeitura([]);
+    }
+  }, [prefeituraId, secretarias]);
+
   useEffect(() => {
     const carregarVenda = async () => {
       setCarregando(true);
       const { data: venda, error: e1 } = await supabase
         .from("vendas")
         .select(
-          "secretaria_id, data_venda, observacao, itens_venda(produto_id, quantidade, unidade, preco_unitario)",
+          "prefeitura_id, secretaria_id, data_venda, observacao, itens_venda(produto_id, quantidade, unidade, preco_unitario)",
         )
         .eq("id", id)
         .single();
@@ -80,7 +100,8 @@ function EditarVenda() {
         return;
       }
 
-      setSecretariaId(venda.secretaria_id);
+      setPrefeituraId(venda.prefeitura_id);
+      setSecretariaId(venda.secretaria_id || "");
       setDataVenda(venda.data_venda);
       setObservacao(venda.observacao || "");
 
@@ -119,7 +140,13 @@ function EditarVenda() {
   );
 
   const salvar = async () => {
-    if (!secretariaId) return toast.error("Selecione a secretaria");
+    if (!prefeituraId) return toast.error("Selecione a prefeitura");
+
+    // Se a prefeitura tem secretarias cadastradas, é obrigatório selecionar uma
+    if (secretariasDaPrefeitura.length > 0 && !secretariaId) {
+      return toast.error("Selecione a secretaria (esta prefeitura possui secretarias cadastradas)");
+    }
+
     const itensValidos = itens.filter((it) => it.produto_id && Number(it.quantidade) > 0);
     if (itensValidos.length === 0) return toast.error("Adicione ao menos um item");
 
@@ -129,7 +156,8 @@ function EditarVenda() {
     const { error: e1 } = await supabase
       .from("vendas")
       .update({
-        secretaria_id: secretariaId,
+        prefeitura_id: prefeituraId,
+        secretaria_id: secretariaId || null,
         data_venda: dataVenda,
         observacao: observacao || null,
       })
@@ -188,9 +216,9 @@ function EditarVenda() {
         <h2 className="text-2xl font-bold">Editar Venda</h2>
       </div>
 
-      {secretarias.length === 0 && (
+      {prefeituras.length === 0 && (
         <Card className="p-4 bg-accent/30 border-accent">
-          Cadastre uma secretaria primeiro na aba <strong>Secretarias</strong>.
+          Cadastre uma prefeitura primeiro na aba <strong>Prefeituras</strong>.
         </Card>
       )}
       {produtos.length === 0 && (
@@ -201,20 +229,45 @@ function EditarVenda() {
 
       <Card className="p-4 space-y-3">
         <div>
-          <Label>Secretaria</Label>
-          <Select value={secretariaId} onValueChange={setSecretariaId}>
+          <Label>Prefeitura *</Label>
+          <Select value={prefeituraId} onValueChange={setPrefeituraId}>
             <SelectTrigger>
-              <SelectValue placeholder="Selecione…" />
+              <SelectValue placeholder="Selecione a prefeitura..." />
             </SelectTrigger>
             <SelectContent>
-              {secretarias.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.nome}
+              {prefeituras.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.nome}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
+
+        {prefeituraId && secretariasDaPrefeitura.length > 0 && (
+          <div>
+            <Label>Secretaria *</Label>
+            <Select value={secretariaId} onValueChange={setSecretariaId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a secretaria..." />
+              </SelectTrigger>
+              <SelectContent>
+                {secretariasDaPrefeitura.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {prefeituraId && secretariasDaPrefeitura.length === 0 && (
+          <Card className="p-3 bg-muted text-sm text-muted-foreground">
+            Esta prefeitura não possui secretarias cadastradas. A venda será registrada apenas na
+            prefeitura.
+          </Card>
+        )}
         <div>
           <Label>Data</Label>
           <Input type="date" value={dataVenda} onChange={(e) => setDataVenda(e.target.value)} />

@@ -7,6 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -27,7 +34,8 @@ import {
 import { Plus, Pencil, Trash2, Building2 } from "lucide-react";
 import { toast } from "sonner";
 
-type Sec = { id: string; nome: string; observacao: string | null };
+type Sec = { id: string; nome: string; observacao: string | null; prefeitura_id: string | null };
+type Prefeitura = { id: string; nome: string };
 
 export const Route = createFileRoute("/secretarias")({
   component: SecretariasPage,
@@ -35,37 +43,55 @@ export const Route = createFileRoute("/secretarias")({
 
 function SecretariasPage() {
   const [items, setItems] = useState<Sec[]>([]);
+  const [prefeituras, setPrefeituras] = useState<Prefeitura[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Sec | null>(null);
   const [nome, setNome] = useState("");
   const [obs, setObs] = useState("");
+  const [prefeituraId, setPrefeituraId] = useState("");
   const [secretariaParaExcluir, setSecretariaParaExcluir] = useState<Sec | null>(null);
 
   const carregar = async () => {
-    const { data, error } = await supabase.from("secretarias").select("*").order("nome");
+    const { data, error } = await supabase
+      .from("secretarias")
+      .select("id, nome, observacao, prefeitura_id")
+      .order("nome");
     if (error) toast.error(error.message);
     else setItems(data ?? []);
   };
+
+  const carregarPrefeituras = async () => {
+    const { data } = await supabase.from("prefeituras").select("id, nome").order("nome");
+    setPrefeituras(data ?? []);
+  };
+
   useEffect(() => {
     carregar();
+    carregarPrefeituras();
   }, []);
 
   const abrirNovo = () => {
     setEditing(null);
     setNome("");
     setObs("");
+    setPrefeituraId("");
     setOpen(true);
   };
   const abrirEdit = (s: Sec) => {
     setEditing(s);
     setNome(s.nome);
     setObs(s.observacao ?? "");
+    setPrefeituraId(s.prefeitura_id ?? "");
     setOpen(true);
   };
 
   const salvar = async () => {
     if (!nome.trim()) return toast.error("Nome obrigatório");
-    const payload = { nome: nome.trim(), observacao: obs.trim() || null };
+    const payload = {
+      nome: nome.trim(),
+      observacao: obs.trim() || null,
+      prefeitura_id: prefeituraId || null,
+    };
     const { error } = editing
       ? await supabase.from("secretarias").update(payload).eq("id", editing.id)
       : await supabase.from("secretarias").insert(payload);
@@ -104,6 +130,22 @@ function SecretariasPage() {
               <DialogTitle>{editing ? "Editar Secretaria" : "Nova Secretaria"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-3">
+              <div>
+                <Label>Prefeitura (opcional)</Label>
+                <Select value={prefeituraId} onValueChange={setPrefeituraId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma prefeitura..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Nenhuma</SelectItem>
+                    {prefeituras.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <Label>Nome</Label>
                 <Input

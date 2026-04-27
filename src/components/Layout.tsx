@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, Package, Building2, BarChart3, Plus, Sprout } from "lucide-react";
+import { Home, Package, Building, BarChart3, Plus, Sprout } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
@@ -7,7 +7,7 @@ const navItems = [
   { to: "/", label: "Vendas", icon: Home },
   { to: "/nova-venda", label: "Nova", icon: Plus },
   { to: "/produtos", label: "Produtos", icon: Package },
-  { to: "/secretarias", label: "Secretarias", icon: Building2 },
+  { to: "/prefeituras", label: "Prefeituras", icon: Building },
   { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
 ] as const;
 
@@ -25,7 +25,9 @@ export function Layout({ children }: { children: ReactNode }) {
             <Sprout className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-lg font-bold leading-tight text-foreground">Gestão Vendas Verdurão</h1>
+            <h1 className="text-lg font-bold leading-tight text-foreground">
+              Gestão Vendas Verdurão
+            </h1>
           </div>
         </div>
       </header>
@@ -42,7 +44,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 to={to}
                 className={cn(
                   "flex flex-1 flex-col items-center gap-1 py-2.5 text-xs font-medium transition-colors",
-                  active ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                  active ? "text-primary" : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <Icon className={cn("h-5 w-5 transition-transform", active && "scale-110")} />
