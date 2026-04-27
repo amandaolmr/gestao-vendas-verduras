@@ -30,11 +30,20 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Gestão Vendas Verdurão" },
-      { name: "description", content: "Controle de vendas de frutas, verduras e legumes para secretarias da prefeitura." },
+      {
+        name: "description",
+        content: "Controle de vendas de frutas, verduras e legumes para secretarias da prefeitura.",
+      },
       { property: "og:title", content: "Gestão Vendas Verdurão" },
       { name: "twitter:title", content: "Gestão Vendas Verdurão" },
-      { property: "og:description", content: "Controle de vendas de frutas, verduras e legumes para secretarias da prefeitura." },
-      { name: "twitter:description", content: "Controle de vendas de frutas, verduras e legumes para secretarias da prefeitura." },
+      {
+        property: "og:description",
+        content: "Controle de vendas de frutas, verduras e legumes para secretarias da prefeitura.",
+      },
+      {
+        name: "twitter:description",
+        content: "Controle de vendas de frutas, verduras e legumes para secretarias da prefeitura.",
+      },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
     ],
