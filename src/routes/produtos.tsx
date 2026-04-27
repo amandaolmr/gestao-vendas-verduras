@@ -30,11 +30,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Package } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { UNIDADES, formatCurrency } from "@/lib/format";
 
 type Produto = { id: string; nome: string; unidade_padrao: string; preco_padrao: number };
+
+const ITEMS_POR_PAGINA = 10;
 
 export const Route = createFileRoute("/produtos")({
   component: ProdutosPage,
@@ -42,6 +44,8 @@ export const Route = createFileRoute("/produtos")({
 
 function ProdutosPage() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [totalProdutos, setTotalProdutos] = useState(0);
+  const [paginaAtual, setPaginaAtual] = useState(1);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Produto | null>(null);
   const [nome, setNome] = useState("");
@@ -50,14 +54,28 @@ function ProdutosPage() {
   const [produtoParaExcluir, setProdutoParaExcluir] = useState<Produto | null>(null);
 
   const carregar = async () => {
-    const { data, error } = await supabase.from("produtos").select("*").order("nome");
+    // Conta o total de produtos
+    const { count } = await supabase.from("produtos").select("*", { count: "exact", head: true });
+
+    setTotalProdutos(count ?? 0);
+
+    // Busca produtos da página atual
+    const inicio = (paginaAtual - 1) * ITEMS_POR_PAGINA;
+    const fim = inicio + ITEMS_POR_PAGINA - 1;
+
+    const { data, error } = await supabase
+      .from("produtos")
+      .select("*")
+      .order("nome")
+      .range(inicio, fim);
+
     if (error) toast.error(error.message);
     else setProdutos((data ?? []) as Produto[]);
   };
 
   useEffect(() => {
     carregar();
-  }, []);
+  }, [paginaAtual]);
 
   const abrirNovo = () => {
     setEditing(null);
@@ -92,6 +110,7 @@ function ProdutosPage() {
       toast.success("Produto adicionado");
     }
     setOpen(false);
+    setPaginaAtual(1); // Volta para a primeira página após salvar
     carregar();
   };
 
@@ -105,6 +124,9 @@ function ProdutosPage() {
     }
     setProdutoParaExcluir(null);
   };
+
+  const totalPaginas = Math.ceil(totalProdutos / ITEMS_POR_PAGINA);
+  const exibirPaginacao = totalProdutos > ITEMS_POR_PAGINA;
 
   return (
     <div className="space-y-4">
@@ -200,6 +222,36 @@ function ProdutosPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {exibirPaginacao && (
+        <Card className="p-3">
+          <div className="flex items-center justify-between">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPaginaAtual((p) => Math.max(1, p - 1))}
+              disabled={paginaAtual === 1}
+              className="gap-1"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Página {paginaAtual} de {totalPaginas} ({totalProdutos} produtos)
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPaginaAtual((p) => Math.min(totalPaginas, p + 1))}
+              disabled={paginaAtual >= totalPaginas}
+              className="gap-1"
+            >
+              Próxima
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </Card>
       )}
 
       <AlertDialog open={!!produtoParaExcluir} onOpenChange={() => setProdutoParaExcluir(null)}>
