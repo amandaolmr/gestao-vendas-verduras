@@ -47,6 +47,7 @@ function Relatorios() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [cardsExpandidos, setCardsExpandidos] = useState<Set<string>>(new Set());
+  const [vendasExpandidas, setVendasExpandidas] = useState<Set<string>>(new Set());
   const MAX_PRODUTOS_VISIVEL = 5;
 
   useEffect(() => {
@@ -82,7 +83,7 @@ function Relatorios() {
       .select(
         "data_venda, observacao, prefeitura:prefeituras(nome), secretaria:secretarias(nome), itens_venda(quantidade, unidade, preco_unitario, produto:produtos(nome))",
       )
-      .order("data_venda", { ascending: true });
+      .order("data_venda", { ascending: false });
     if (from) q = q.gte("data_venda", from);
     if (to) q = q.lte("data_venda", to);
     if (filtroPrefeitura !== "todas") q = q.eq("prefeitura_id", filtroPrefeitura);
@@ -190,34 +191,81 @@ function Relatorios() {
       doc.setTextColor(0, 0, 0);
       y += 10;
 
-      // Linhas: cada item de cada venda
-      const body: string[][] = [];
-      for (const v of g.vendas) {
+      // Agrupar por venda
+      for (let vendaIdx = 0; vendaIdx < g.vendas.length; vendaIdx++) {
+        const v = g.vendas[vendaIdx];
+        const totalVendaAtual = totalVenda(v);
+
+        // Cabeçalho da venda
+        doc.setFillColor(220, 230, 220);
+        doc.setFontSize(9);
+        doc.setTextColor(40, 40, 40);
+        doc.rect(14, y, pageW - 28, 6, "F");
+        doc.text(`Venda ${vendaIdx + 1} - ${formatDate(v.data_venda)}`, 16, y + 4);
+        doc.text(`${formatCurrency(totalVendaAtual)}`, pageW - 16, y + 4, { align: "right" });
+        doc.setTextColor(0, 0, 0);
+        y += 6;
+
+        // Tabela de itens da venda
+        const body: string[][] = [];
         for (const it of v.itens_venda) {
           const sub = Number(it.quantidade) * Number(it.preco_unitario);
           body.push([
-            formatDate(v.data_venda),
             it.produto?.nome ?? "—",
             `${formatNumber(Number(it.quantidade), 3)} ${it.unidade}`,
             formatCurrency(Number(it.preco_unitario)),
             formatCurrency(sub),
           ]);
         }
+
+        autoTable(doc, {
+          startY: y,
+          head: [["Produto", "Qtd", "Preço Un.", "Subtotal"]],
+          body,
+          headStyles: { fillColor: [240, 240, 240], textColor: 20, fontStyle: "bold" },
+          styles: { fontSize: 8 },
+          margin: { left: 14, right: 14 },
+          foot: [["", "", "Subtotal", formatCurrency(totalVendaAtual)]],
+          footStyles: { fillColor: [250, 250, 250], textColor: 20, fontStyle: "bold", fontSize: 8 },
+        });
+
+        // @ts-expect-error lastAutoTable injected by autotable
+        y = doc.lastAutoTable.finalY + 4;
+
+        // Observação da venda (se houver)
+        if (v.observacao) {
+          doc.setFontSize(7);
+          doc.setTextColor(100, 100, 100);
+          const obsText = `Obs: ${v.observacao}`;
+          const lines = doc.splitTextToSize(obsText, pageW - 32);
+          doc.text(lines, 16, y);
+          y += lines.length * 3 + 2;
+          doc.setTextColor(0, 0, 0);
+        }
+
+        // Espaço entre vendas
+        y += 2;
+
+        // Verificar se precisa de nova página
+        if (y > doc.internal.pageSize.getHeight() - 50 && vendaIdx < g.vendas.length - 1) {
+          doc.addPage();
+          doc.setFontSize(14);
+          doc.text("Verdurão Miranda", 14, 14);
+          doc.setFontSize(9);
+          doc.text("Cliente: Prefeitura Municipal de São José de Piranhas", 14, 20);
+          y = 28;
+        }
       }
 
-      autoTable(doc, {
-        startY: y,
-        head: [["Data", "Produto", "Qtd", "Preço Un.", "Subtotal"]],
-        body,
-        headStyles: { fillColor: [220, 230, 220], textColor: 20, fontStyle: "bold" },
-        styles: { fontSize: 9 },
-        margin: { left: 14, right: 14 },
-        foot: [["", "", "", "Total", formatCurrency(g.total)]],
-        footStyles: { fillColor: [240, 240, 240], textColor: 20, fontStyle: "bold" },
-      });
-
-      // @ts-expect-error lastAutoTable injected by autotable
-      y = doc.lastAutoTable.finalY + 8;
+      // Total da secretaria
+      doc.setFillColor(200, 220, 200);
+      doc.setFontSize(10);
+      doc.setTextColor(20, 20, 20);
+      doc.rect(14, y, pageW - 28, 7, "F");
+      doc.text(`TOTAL ${nome}`, 16, y + 4.5);
+      doc.text(formatCurrency(g.total), pageW - 16, y + 4.5, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+      y += 10;
 
       if (y > doc.internal.pageSize.getHeight() - 30) {
         doc.addPage();
@@ -429,19 +477,91 @@ function Relatorios() {
                     <p className="font-bold">{formatCurrency(g.total)}</p>
                   </div>
                   <ul className="divide-y">
-                    {g.vendas.map((v, idx) => (
-                      <li key={idx} className="p-3 flex items-center justify-between text-sm">
-                        <div>
-                          <p className="font-medium">{formatDate(v.data_venda)}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {v.itens_venda.length} {v.itens_venda.length === 1 ? "item" : "itens"}
-                          </p>
-                        </div>
-                        <p className="font-semibold text-primary">
-                          {formatCurrency(totalVenda(v))}
-                        </p>
-                      </li>
-                    ))}
+                    {g.vendas.map((v, idx) => {
+                      const vendaId = `${nome}-${idx}`;
+                      const expandido = vendasExpandidas.has(vendaId);
+
+                      const toggleVenda = () => {
+                        const novoSet = new Set(vendasExpandidas);
+                        if (expandido) {
+                          novoSet.delete(vendaId);
+                        } else {
+                          novoSet.add(vendaId);
+                        }
+                        setVendasExpandidas(novoSet);
+                      };
+
+                      return (
+                        <li key={idx} className="text-sm">
+                          <div
+                            className="p-3 flex items-center justify-between cursor-pointer hover:bg-muted/30"
+                            onClick={toggleVenda}
+                          >
+                            <div className="flex items-center gap-2">
+                              {expandido ? (
+                                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                              )}
+                              <div>
+                                <p className="font-medium">{formatDate(v.data_venda)}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {v.itens_venda.length}{" "}
+                                  {v.itens_venda.length === 1 ? "item" : "itens"}
+                                </p>
+                              </div>
+                            </div>
+                            <p className="font-semibold text-primary">
+                              {formatCurrency(totalVenda(v))}
+                            </p>
+                          </div>
+                          {expandido && (
+                            <div className="px-3 pb-3">
+                              <div className="bg-muted/30 rounded-md overflow-hidden">
+                                <table className="w-full text-xs">
+                                  <thead className="bg-muted/50">
+                                    <tr>
+                                      <th className="text-left p-2 font-medium">Produto</th>
+                                      <th className="text-right p-2 font-medium">Quantidade</th>
+                                      <th className="text-right p-2 font-medium">Preço Un.</th>
+                                      <th className="text-right p-2 font-medium">Subtotal</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {v.itens_venda.map((it, itIdx) => {
+                                      const subtotal =
+                                        Number(it.quantidade) * Number(it.preco_unitario);
+                                      return (
+                                        <tr key={itIdx} className="border-t border-muted">
+                                          <td className="p-2">{it.produto?.nome ?? "—"}</td>
+                                          <td className="p-2 text-right text-muted-foreground">
+                                            {formatNumber(Number(it.quantidade), 3)} {it.unidade}
+                                          </td>
+                                          <td className="p-2 text-right text-muted-foreground">
+                                            {formatCurrency(Number(it.preco_unitario))}
+                                          </td>
+                                          <td className="p-2 text-right font-medium">
+                                            {formatCurrency(subtotal)}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                                {v.observacao && (
+                                  <div className="p-2 border-t border-muted bg-muted/20">
+                                    <p className="text-xs text-muted-foreground">
+                                      <span className="font-medium">Observação:</span>{" "}
+                                      {v.observacao}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </Card>
               ))}
