@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Trash2, Calendar, Building2, Edit } from "lucide-react";
+import { Plus, Trash2, Calendar, Building2, Edit, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/format";
 
@@ -50,6 +50,7 @@ function VendasIndex() {
   const [secretariasSelecionadas, setSecretariasSelecionadas] = useState<string[]>([]);
   const [filtroData, setFiltroData] = useState<string>("");
   const [vendaParaExcluir, setVendaParaExcluir] = useState<string | null>(null);
+  const [vendaParaDuplicar, setVendaParaDuplicar] = useState<string | null>(null);
 
   const carregar = async () => {
     setLoading(true);
@@ -109,6 +110,66 @@ function VendasIndex() {
       carregar();
     }
     setVendaParaExcluir(null);
+  };
+
+  const confirmarDuplicacao = async () => {
+    if (!vendaParaDuplicar) return;
+    try {
+      // Buscar a venda completa com todos os itens
+      const { data: vendaOriginal, error: errorVenda } = await supabase
+        .from("vendas")
+        .select(
+          "data_venda, observacao, prefeitura_id, secretaria_id, itens_venda(produto_id, quantidade, unidade, preco_unitario)",
+        )
+        .eq("id", vendaParaDuplicar)
+        .single();
+
+      if (errorVenda) {
+        toast.error("Erro ao buscar venda: " + errorVenda.message);
+        return;
+      }
+
+      // Criar nova venda com data de hoje
+      const { data: novaVenda, error: errorNovaVenda } = await supabase
+        .from("vendas")
+        .insert({
+          data_venda: new Date().toISOString().split("T")[0],
+          observacao: vendaOriginal.observacao,
+          prefeitura_id: vendaOriginal.prefeitura_id,
+          secretaria_id: vendaOriginal.secretaria_id,
+        })
+        .select("id")
+        .single();
+
+      if (errorNovaVenda) {
+        toast.error("Erro ao criar venda: " + errorNovaVenda.message);
+        return;
+      }
+
+      // Criar os itens da nova venda
+      const itensParaInserir = (vendaOriginal.itens_venda as any[]).map((item) => ({
+        venda_id: novaVenda.id,
+        produto_id: item.produto_id,
+        quantidade: item.quantidade,
+        unidade: item.unidade,
+        preco_unitario: item.preco_unitario,
+      }));
+
+      const { error: errorItens } = await supabase.from("itens_venda").insert(itensParaInserir);
+
+      if (errorItens) {
+        toast.error("Erro ao criar itens: " + errorItens.message);
+        return;
+      }
+
+      toast.success("Venda duplicada com sucesso!");
+      carregar();
+    } catch (error) {
+      toast.error("Erro ao duplicar venda");
+      console.error(error);
+    } finally {
+      setVendaParaDuplicar(null);
+    }
   };
 
   return (
@@ -225,6 +286,15 @@ function VendasIndex() {
                     )}
                   </div>
                   <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setVendaParaDuplicar(v.id)}
+                      className="text-blue-600 hover:text-blue-700"
+                      title="Duplicar venda"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
                     <Link to="/editar-venda/$id" params={{ id: v.id }}>
                       <Button variant="ghost" size="icon" className="text-primary">
                         <Edit className="h-4 w-4" />
@@ -262,6 +332,22 @@ function VendasIndex() {
             >
               Excluir
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!vendaParaDuplicar} onOpenChange={() => setVendaParaDuplicar(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Duplicar venda</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja criar uma cópia desta venda com a data de hoje? Todos os itens serão
+              duplicados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarDuplicacao}>Duplicar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
