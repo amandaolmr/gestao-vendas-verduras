@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,7 @@ export const Route = createFileRoute("/")({
 });
 
 function VendasIndex() {
+  const navigate = useNavigate();
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [prefeituras, setPrefeituras] = useState<{ id: string; nome: string }[]>([]);
   const [secretarias, setSecretarias] = useState<{ id: string; nome: string }[]>([]);
@@ -129,11 +130,11 @@ function VendasIndex() {
         return;
       }
 
-      // Criar nova venda com data de hoje
+      // Criar nova venda com a mesma data
       const { data: novaVenda, error: errorNovaVenda } = await supabase
         .from("vendas")
         .insert({
-          data_venda: new Date().toISOString().split("T")[0],
+          data_venda: vendaOriginal.data_venda,
           observacao: vendaOriginal.observacao,
           prefeitura_id: vendaOriginal.prefeitura_id,
           secretaria_id: vendaOriginal.secretaria_id,
@@ -163,7 +164,10 @@ function VendasIndex() {
       }
 
       toast.success("Venda duplicada com sucesso!");
-      carregar();
+      setVendaParaDuplicar(null);
+
+      // Navegar para a tela de edição da venda duplicada
+      navigate({ to: "/editar-venda/$id", params: { id: novaVenda.id } });
     } catch (error) {
       toast.error("Erro ao duplicar venda");
       console.error(error);
@@ -251,7 +255,8 @@ function VendasIndex() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {vendas.map((v) => {
+          {vendas.map((v, index) => {
+            const numeroVenda = vendas.length - index;
             const total = v.itens_venda.reduce(
               (s, i) => s + Number(i.quantidade) * Number(i.preco_unitario),
               0,
@@ -260,9 +265,14 @@ function VendasIndex() {
               <Card key={v.id} className="p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-2 flex-1 min-w-0">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
-                      <span>{formatDate(v.data_venda)}</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className="font-mono text-xs font-semibold">
+                        Venda #{numeroVenda}
+                      </Badge>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Calendar className="h-4 w-4" />
+                        <span>{formatDate(v.data_venda)}</span>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 font-semibold text-foreground">
@@ -341,7 +351,7 @@ function VendasIndex() {
           <AlertDialogHeader>
             <AlertDialogTitle>Duplicar venda</AlertDialogTitle>
             <AlertDialogDescription>
-              Deseja criar uma cópia desta venda com a data de hoje? Todos os itens serão
+              Deseja criar uma cópia desta venda? Todos os dados, incluindo data e itens, serão
               duplicados.
             </AlertDialogDescription>
           </AlertDialogHeader>
