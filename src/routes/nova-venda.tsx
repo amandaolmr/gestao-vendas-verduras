@@ -245,23 +245,7 @@ function NovaVenda() {
       </Card>
 
       <Card className="p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold">Itens</h3>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setItens((a) => [
-                { produto_id: "", quantidade: "", unidade: "kg", preco_unitario: "" },
-                ...a,
-              ]);
-              setOpenPopovers((p) => [false, ...p]);
-            }}
-          >
-            <Plus className="h-4 w-4 mr-1" /> Item
-          </Button>
-        </div>
+        <h3 className="font-semibold">Itens</h3>
 
         {itens.map((it, i) => {
           const produtoSelecionado = produtos.find((p) => p.id === it.produto_id);
@@ -381,6 +365,21 @@ function NovaVenda() {
             </Card>
           );
         })}
+
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full border-dashed border-2 border-primary/50 text-primary hover:text-primary-foreground hover:bg-primary hover:border-primary gap-2 h-11 font-medium"
+          onClick={() => {
+            setItens((a) => [
+              ...a,
+              { produto_id: "", quantidade: "", unidade: "kg", preco_unitario: "" },
+            ]);
+            setOpenPopovers((p) => [...p, false]);
+          }}
+        >
+          <Plus className="h-4 w-4" /> Adicionar item
+        </Button>
 
         <div className="flex items-center justify-between border-t pt-3">
           <span className="font-semibold">Total</span>
