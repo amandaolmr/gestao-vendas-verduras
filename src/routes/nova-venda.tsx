@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -33,11 +33,17 @@ type Prefeitura = { id: string; nome: string };
 type Item = { produto_id: string; quantidade: string; unidade: string; preco_unitario: string };
 
 export const Route = createFileRoute("/nova-venda")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    prefeitura: (search.prefeitura as string) ?? "todas",
+    secretarias: (search.secretarias as string[]) ?? [],
+    data: (search.data as string) ?? "",
+  }),
   component: NovaVenda,
 });
 
 function NovaVenda() {
   const navigate = useNavigate();
+  const filtros = useSearch({ from: "/nova-venda" });
   const [prefeituras, setPrefeituras] = useState<Prefeitura[]>([]);
   const [secretarias, setSecretarias] = useState<Secretaria[]>([]);
   const [secretariasDaPrefeitura, setSecretariasDaPrefeitura] = useState<Secretaria[]>([]);
@@ -139,13 +145,33 @@ function NovaVenda() {
     setSalvando(false);
     if (e2) return toast.error(e2.message);
     toast.success("Venda registrada!");
-    navigate({ to: "/" });
+    navigate({
+      to: "/",
+      search: {
+        prefeitura: filtros.prefeitura,
+        secretarias: filtros.secretarias,
+        data: filtros.data,
+      },
+    });
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate({ to: "/" })}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() =>
+            navigate({
+              to: "/",
+              search: {
+                prefeitura: filtros.prefeitura,
+                secretarias: filtros.secretarias,
+                data: filtros.data,
+              },
+            })
+          }
+        >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h2 className="text-2xl font-bold">Nova Venda</h2>

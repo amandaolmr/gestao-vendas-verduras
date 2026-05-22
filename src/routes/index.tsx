@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -38,18 +38,26 @@ type Venda = {
 };
 
 export const Route = createFileRoute("/")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    prefeitura: (search.prefeitura as string) ?? "todas",
+    secretarias: (search.secretarias as string[]) ?? [],
+    data: (search.data as string) ?? "",
+  }),
   component: VendasIndex,
 });
 
 function VendasIndex() {
   const navigate = useNavigate();
+  const search = useSearch({ from: "/" });
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [prefeituras, setPrefeituras] = useState<{ id: string; nome: string }[]>([]);
   const [secretarias, setSecretarias] = useState<{ id: string; nome: string }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filtroPrefeitura, setFiltroPrefeitura] = useState<string>("todas");
-  const [secretariasSelecionadas, setSecretariasSelecionadas] = useState<string[]>([]);
-  const [filtroData, setFiltroData] = useState<string>("");
+  const [filtroPrefeitura, setFiltroPrefeitura] = useState<string>(search.prefeitura ?? "todas");
+  const [secretariasSelecionadas, setSecretariasSelecionadas] = useState<string[]>(
+    search.secretarias ?? [],
+  );
+  const [filtroData, setFiltroData] = useState<string>(search.data ?? "");
   const [vendaParaExcluir, setVendaParaExcluir] = useState<string | null>(null);
   const [vendaParaDuplicar, setVendaParaDuplicar] = useState<string | null>(null);
 
@@ -93,12 +101,26 @@ function VendasIndex() {
         });
     } else {
       setSecretarias([]);
+      setSecretariasSelecionadas([]);
     }
-    setSecretariasSelecionadas([]);
   }, [filtroPrefeitura]);
 
   useEffect(() => {
     carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroPrefeitura, secretariasSelecionadas, filtroData]);
+
+  // Sincroniza filtros na URL para persistir ao voltar
+  useEffect(() => {
+    navigate({
+      to: "/",
+      search: {
+        prefeitura: filtroPrefeitura,
+        secretarias: secretariasSelecionadas,
+        data: filtroData,
+      },
+      replace: true,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtroPrefeitura, secretariasSelecionadas, filtroData]);
 
@@ -167,7 +189,11 @@ function VendasIndex() {
       setVendaParaDuplicar(null);
 
       // Navegar para a tela de edição da venda duplicada
-      navigate({ to: "/editar-venda/$id", params: { id: novaVenda.id } });
+      navigate({
+        to: "/editar-venda/$id",
+        params: { id: novaVenda.id },
+        search: { duplicado: true },
+      });
     } catch (error) {
       toast.error("Erro ao duplicar venda");
       console.error(error);
@@ -180,7 +206,14 @@ function VendasIndex() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Vendas</h2>
-        <Link to="/nova-venda">
+        <Link
+          to="/nova-venda"
+          search={{
+            prefeitura: filtroPrefeitura,
+            secretarias: secretariasSelecionadas,
+            data: filtroData,
+          }}
+        >
           <Button size="lg" className="gap-2">
             <Plus className="h-5 w-5" /> Nova
           </Button>

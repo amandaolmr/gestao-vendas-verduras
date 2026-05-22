@@ -1,5 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -33,12 +33,18 @@ type Prefeitura = { id: string; nome: string };
 type Item = { produto_id: string; quantidade: string; unidade: string; preco_unitario: string };
 
 export const Route = createFileRoute("/editar-venda/$id")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    duplicado: search.duplicado === true || search.duplicado === "true",
+  }),
+
   component: EditarVenda,
 });
 
 function EditarVenda() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
+  const { duplicado } = useSearch({ from: "/editar-venda/$id" });
+  const dataInputRef = useRef<HTMLInputElement>(null);
   const [prefeituras, setPrefeituras] = useState<Prefeitura[]>([]);
   const [secretarias, setSecretarias] = useState<Secretaria[]>([]);
   const [secretariasDaPrefeitura, setSecretariasDaPrefeitura] = useState<Secretaria[]>([]);
@@ -102,7 +108,8 @@ function EditarVenda() {
 
       setPrefeituraId(venda.prefeitura_id);
       setSecretariaId(venda.secretaria_id || "");
-      setDataVenda(venda.data_venda);
+      // Se for duplicação, limpa a data para forçar o usuário a escolher a data correta
+      setDataVenda(duplicado ? "" : venda.data_venda);
       setObservacao(venda.observacao || "");
 
       if (venda.itens_venda && venda.itens_venda.length > 0) {
@@ -116,10 +123,14 @@ function EditarVenda() {
         setOpenPopovers(new Array(itensCarregados.length).fill(false));
       }
       setCarregando(false);
+      // Foca no campo de data após carregar quando for duplicação
+      if (duplicado) {
+        setTimeout(() => dataInputRef.current?.focus(), 50);
+      }
     };
 
     carregarVenda();
-  }, [id, navigate]);
+  }, [id, navigate, duplicado]);
 
   const updateItem = (i: number, patch: Partial<Item>) => {
     setItens((arr) => arr.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
@@ -141,6 +152,7 @@ function EditarVenda() {
 
   const salvar = async () => {
     if (!prefeituraId) return toast.error("Selecione a prefeitura");
+    if (!dataVenda) return toast.error("Informe a data da venda");
 
     // Se a prefeitura tem secretarias cadastradas, é obrigatório selecionar uma
     if (secretariasDaPrefeitura.length > 0 && !secretariaId) {
@@ -269,8 +281,19 @@ function EditarVenda() {
           </Card>
         )}
         <div>
-          <Label>Data</Label>
-          <Input type="date" value={dataVenda} onChange={(e) => setDataVenda(e.target.value)} />
+          <Label>
+            Data{" "}
+            {duplicado && (
+              <span className="text-destructive">* (obrigatório para venda duplicada)</span>
+            )}
+          </Label>
+          <Input
+            ref={dataInputRef}
+            type="date"
+            value={dataVenda}
+            onChange={(e) => setDataVenda(e.target.value)}
+            className={!dataVenda && duplicado ? "border-destructive" : ""}
+          />
         </div>
         <div>
           <Label>Observação</Label>
