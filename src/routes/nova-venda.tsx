@@ -57,6 +57,7 @@ function NovaVenda() {
   ]);
   const [salvando, setSalvando] = useState(false);
   const [openPopovers, setOpenPopovers] = useState<boolean[]>([false]);
+  const [lastAddedIndex, setLastAddedIndex] = useState<number | null>(null);
 
   useEffect(() => {
     supabase
@@ -251,7 +252,10 @@ function NovaVenda() {
           const produtoSelecionado = produtos.find((p) => p.id === it.produto_id);
 
           return (
-            <Card key={i} className="p-3 bg-muted/40 space-y-2">
+            <Card
+              key={i}
+              className={`p-3 space-y-2 transition-all duration-700 ${lastAddedIndex === i ? "bg-primary/10 border-primary ring-1 ring-primary" : "bg-muted/40"}`}
+            >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-muted-foreground">Item {i + 1}</span>
                 {itens.length > 1 && (
@@ -371,10 +375,15 @@ function NovaVenda() {
           variant="outline"
           className="w-full border-dashed border-2 border-primary/50 text-primary hover:text-primary-foreground hover:bg-primary hover:border-primary gap-2 h-11 font-medium"
           onClick={() => {
-            setItens((a) => [
-              ...a,
-              { produto_id: "", quantidade: "", unidade: "kg", preco_unitario: "" },
-            ]);
+            setItens((a) => {
+              const next = [
+                ...a,
+                { produto_id: "", quantidade: "", unidade: "kg", preco_unitario: "" },
+              ];
+              setLastAddedIndex(next.length - 1);
+              setTimeout(() => setLastAddedIndex(null), 1500);
+              return next;
+            });
             setOpenPopovers((p) => [...p, false]);
           }}
         >
