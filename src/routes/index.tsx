@@ -202,7 +202,12 @@ function VendasIndex() {
       navigate({
         to: "/editar-venda/$id",
         params: { id: novaVenda.id },
-        search: { duplicado: true },
+        search: {
+          duplicado: true,
+          prefeitura: filtroPrefeitura,
+          secretarias: secretariasSelecionadas,
+          data: filtroData,
+        },
       });
     } catch (error) {
       toast.error("Erro ao duplicar venda");

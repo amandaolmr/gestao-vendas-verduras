@@ -35,6 +35,9 @@ type Item = { produto_id: string; quantidade: string; unidade: string; preco_uni
 export const Route = createFileRoute("/editar-venda/$id")({
   validateSearch: (search: Record<string, unknown>) => ({
     duplicado: search.duplicado === true || search.duplicado === "true",
+    prefeitura: (search.prefeitura as string) ?? "todas",
+    secretarias: (search.secretarias as string[]) ?? [],
+    data: (search.data as string) ?? "",
   }),
 
   component: EditarVenda,
@@ -43,7 +46,7 @@ export const Route = createFileRoute("/editar-venda/$id")({
 function EditarVenda() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const { duplicado } = useSearch({ from: "/editar-venda/$id" });
+  const { duplicado, prefeitura, secretarias, data } = useSearch({ from: "/editar-venda/$id" });
   const dataInputRef = useRef<HTMLInputElement>(null);
   const [prefeituras, setPrefeituras] = useState<Prefeitura[]>([]);
   const [secretarias, setSecretarias] = useState<Secretaria[]>([]);
@@ -202,7 +205,14 @@ function EditarVenda() {
     setSalvando(false);
     if (e3) return toast.error(e3.message);
     toast.success("Venda atualizada!");
-    navigate({ to: "/" });
+    navigate({
+      to: "/",
+      search: {
+        prefeitura,
+        secretarias,
+        data,
+      },
+    });
   };
 
   if (carregando) {
@@ -222,7 +232,20 @@ function EditarVenda() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate({ to: "/" })}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() =>
+            navigate({
+              to: "/",
+              search: {
+                prefeitura,
+                secretarias,
+                data,
+              },
+            })
+          }
+        >
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h2 className="text-2xl font-bold">Editar Venda</h2>
