@@ -124,6 +124,16 @@ function VendasIndex() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtroPrefeitura, secretariasSelecionadas, filtroData]);
 
+  const temFiltrosAtivos = () => {
+    return filtroPrefeitura !== "todas" || secretariasSelecionadas.length > 0 || filtroData !== "";
+  };
+
+  const limparFiltros = () => {
+    setFiltroPrefeitura("todas");
+    setSecretariasSelecionadas([]);
+    setFiltroData("");
+  };
+
   const confirmarExclusao = async () => {
     if (!vendaParaExcluir) return;
     const { error } = await supabase.from("vendas").delete().eq("id", vendaParaExcluir);
@@ -221,6 +231,15 @@ function VendasIndex() {
       </div>
 
       <Card className="p-3 space-y-3">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-medium">Filtros</h3>
+          {temFiltrosAtivos() && (
+            <Button variant="outline" size="sm" onClick={limparFiltros} className="text-xs">
+              <Trash2 className="h-3 w-3 mr-1" />
+              Limpar Filtros
+            </Button>
+          )}
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Label className="text-xs">Prefeitura</Label>
