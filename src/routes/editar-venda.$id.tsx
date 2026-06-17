@@ -49,7 +49,7 @@ function EditarVenda() {
   const { duplicado, prefeitura, secretarias, data } = useSearch({ from: "/editar-venda/$id" });
   const dataInputRef = useRef<HTMLInputElement>(null);
   const [prefeituras, setPrefeituras] = useState<Prefeitura[]>([]);
-  const [secretarias, setSecretarias] = useState<Secretaria[]>([]);
+  const [todasAsSecretarias, setTodasAsSecretarias] = useState<Secretaria[]>([]);
   const [secretariasDaPrefeitura, setSecretariasDaPrefeitura] = useState<Secretaria[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [prefeituraId, setPrefeituraId] = useState("");
@@ -73,7 +73,7 @@ function EditarVenda() {
       .from("secretarias" as any)
       .select("id, nome, prefeitura_id")
       .order("nome")
-      .then(({ data }: any) => setSecretarias((data ?? []) as Secretaria[]));
+      .then(({ data }: any) => setTodasAsSecretarias((data ?? []) as Secretaria[]));
     supabase
       .from("produtos")
       .select("id, nome, unidade_padrao, preco_padrao")
@@ -84,13 +84,13 @@ function EditarVenda() {
   // Quando seleciona prefeitura, filtra as secretarias
   useEffect(() => {
     if (prefeituraId) {
-      const secDaPref = secretarias.filter((s) => s.prefeitura_id === prefeituraId);
+      const secDaPref = todasAsSecretarias.filter((s) => s.prefeitura_id === prefeituraId);
       setSecretariasDaPrefeitura(secDaPref);
       // Não limpa a secretaria na edição se ela já estiver selecionada
     } else {
       setSecretariasDaPrefeitura([]);
     }
-  }, [prefeituraId, secretarias]);
+  }, [prefeituraId, todasAsSecretarias]);
 
   useEffect(() => {
     const carregarVenda = async () => {
@@ -105,7 +105,14 @@ function EditarVenda() {
 
       if (e1 || !venda) {
         toast.error("Erro ao carregar venda");
-        navigate({ to: "/" });
+        navigate({
+          to: "/",
+          search: {
+            prefeitura,
+            secretarias,
+            data,
+          },
+        });
         return;
       }
 
@@ -219,7 +226,20 @@ function EditarVenda() {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => navigate({ to: "/" })}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() =>
+              navigate({
+                to: "/",
+                search: {
+                  prefeitura,
+                  secretarias,
+                  data,
+                },
+              })
+            }
+          >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h2 className="text-2xl font-bold">Editar Venda</h2>
