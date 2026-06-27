@@ -31,6 +31,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 type Venda = {
   id: string;
   data_venda: string;
+  lote_faturamento_id: string | null;
   observacao: string | null;
   prefeitura: { nome: string } | null;
   secretaria: { nome: string } | null;
@@ -39,7 +40,7 @@ type Venda = {
 
 export const Route = createFileRoute("/")({
   validateSearch: (search: Record<string, unknown>) => ({
-    prefeitura: (search.prefeitura as string) ?? "todas",
+    prefeitura: (search.prefeitura as string) ?? "",
     secretarias: (search.secretarias as string[]) ?? [],
     data: (search.data as string) ?? "",
   }),
@@ -53,7 +54,7 @@ function VendasIndex() {
   const [prefeituras, setPrefeituras] = useState<{ id: string; nome: string }[]>([]);
   const [secretarias, setSecretarias] = useState<{ id: string; nome: string }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filtroPrefeitura, setFiltroPrefeitura] = useState<string>(search.prefeitura ?? "todas");
+  const [filtroPrefeitura, setFiltroPrefeitura] = useState<string>(search.prefeitura ?? "");
   const [secretariasSelecionadas, setSecretariasSelecionadas] = useState<string[]>(
     search.secretarias ?? [],
   );
@@ -66,11 +67,11 @@ function VendasIndex() {
     let q = supabase
       .from("vendas")
       .select(
-        "id, data_venda, observacao, prefeitura:prefeituras(nome), secretaria:secretarias(nome), itens_venda(quantidade, preco_unitario)",
+        "id, data_venda, lote_faturamento_id, observacao, prefeitura:prefeituras(nome), secretaria:secretarias(nome), itens_venda(quantidade, preco_unitario)",
       )
       .order("data_venda", { ascending: false })
       .order("created_at", { ascending: false });
-    if (filtroPrefeitura !== "todas") q = q.eq("prefeitura_id", filtroPrefeitura);
+    if (filtroPrefeitura) q = q.eq("prefeitura_id", filtroPrefeitura);
     if (secretariasSelecionadas.length > 0) q = q.in("secretaria_id", secretariasSelecionadas);
     if (filtroData) q = q.eq("data_venda", filtroData);
     const { data, error } = await q;
@@ -85,12 +86,22 @@ function VendasIndex() {
       .select("id, nome")
       .order("nome")
       .then(({ data }: any) => {
-        setPrefeituras(data ?? []);
+        const lista = (data ?? []) as { id: string; nome: string }[];
+        setPrefeituras(lista);
+        if (lista.length === 0) return;
+
+        setFiltroPrefeitura((atual) => {
+          const existeNoFiltro = lista.some((p) => p.id === atual);
+          if (!atual || atual === "todas" || !existeNoFiltro) {
+            return lista[0].id;
+          }
+          return atual;
+        });
       });
   }, []);
 
   useEffect(() => {
-    if (filtroPrefeitura !== "todas") {
+    if (filtroPrefeitura) {
       supabase
         .from("secretarias")
         .select("id, nome")
@@ -125,11 +136,16 @@ function VendasIndex() {
   }, [filtroPrefeitura, secretariasSelecionadas, filtroData]);
 
   const temFiltrosAtivos = () => {
-    return filtroPrefeitura !== "todas" || secretariasSelecionadas.length > 0 || filtroData !== "";
+    const prefeituraPadrao = prefeituras[0]?.id ?? "";
+    return (
+      (filtroPrefeitura !== "" && filtroPrefeitura !== prefeituraPadrao) ||
+      secretariasSelecionadas.length > 0 ||
+      filtroData !== ""
+    );
   };
 
   const limparFiltros = () => {
-    setFiltroPrefeitura("todas");
+    setFiltroPrefeitura(prefeituras[0]?.id ?? "");
     setSecretariasSelecionadas([]);
     setFiltroData("");
   };
@@ -253,7 +269,6 @@ function VendasIndex() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todas">Todas</SelectItem>
                 {prefeituras.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.nome}
@@ -347,6 +362,11 @@ function VendasIndex() {
                       <Badge style={{ background: "var(--gradient-primary)", color: "white" }}>
                         {formatCurrency(total)}
                       </Badge>
+                      {v.lote_faturamento_id && (
+                        <Badge variant="outline" className="text-primary border-primary/40">
+                          Faturada
+                        </Badge>
+                      )}
                     </div>
                     {v.observacao && (
                       <p className="text-sm text-muted-foreground">{v.observacao}</p>
